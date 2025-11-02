@@ -1,0 +1,50 @@
+version: "3.9"
+services:
+  # Database service removed - now using external MySQL from .env
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    command: ["sh","-c","npx prisma migrate deploy || npx prisma db push --accept-data-loss"]
+    env_file:
+      - .env
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    env_file:
+      - .env
+    environment:
+      INTERNAL_BASE_URL: http://web:3000
+    volumes:
+      - app_data:/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    env_file:
+      - .env
+    volumes:
+      - app_data:/data
+    depends_on:
+      web:
+        condition: service_started
+
+volumes:
+  app_data:
+
+
+

@@ -1,0 +1,30 @@
+FROM node:20-slim AS base
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg tini \
+  && rm -rf /var/lib/apt/lists/*
+
+FROM base AS builder
+WORKDIR /app
+COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
+RUN \
+  if [ -f package-lock.json ]; then npm ci; \
+  elif [ -f pnpm-lock.yaml ]; then corepack enable && pnpm i --frozen-lockfile; \
+  elif [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
+  else npm i; fi
+COPY prisma ./prisma
+RUN npx prisma generate
+COPY lib ./lib
+COPY worker ./worker
+RUN npx tsc -p worker/tsconfig.json
+
+FROM base AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+RUN adduser --disabled-password --gecos '' nodeuser && mkdir -p /data && chown -R nodeuser:nodeuser /data
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/worker/dist ./worker/dist
+COPY package.json ./package.json
+USER nodeuser
+ENTRYPOINT ["/usr/bin/tini","--"]
+CMD ["node","worker/dist/worker/src/index.js"]
+
+

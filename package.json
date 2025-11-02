@@ -1,0 +1,33 @@
+{
+  "name": "video-convert",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build && tsc -p worker/tsconfig.json",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p worker/tsconfig.json --noEmit",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev --name init",
+    "prisma:deploy": "prisma migrate deploy"
+  },
+  "dependencies": {
+    "@fastify/busboy": "^2.1.1",
+    "@prisma/client": "^6.18.0",
+    "dayjs": "^1.11.13",
+    "next": "^14.2.13",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/react": "^18.2.34",
+    "@types/react-dom": "^18.2.15",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.2.13",
+    "prettier": "^3.3.3",
+    "prisma": "^6.18.0",
+    "typescript": "^5.6.3"
+  }
+}

@@ -1,0 +1,55 @@
+# Google Cloud Build configuration
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/videoconvert:$COMMIT_SHA', '-t', 'gcr.io/$PROJECT_ID/videoconvert:latest', '.']
+
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/videoconvert:$COMMIT_SHA']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/videoconvert:latest']
+
+  # Run database migrations
+  - name: 'gcr.io/$PROJECT_ID/videoconvert:$COMMIT_SHA'
+    entrypoint: 'npx'
+    args: ['prisma', 'migrate', 'deploy']
+    env:
+      - 'DATABASE_URL=${_DATABASE_URL}'
+
+  # Deploy container image to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'videoconvert'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/videoconvert:$COMMIT_SHA'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--memory'
+      - '2Gi'
+      - '--cpu'
+      - '2'
+      - '--timeout'
+      - '3600'
+      - '--set-env-vars'
+      - 'NODE_ENV=production,PORT=8080,OUTPUT_FORMATS=mp4,webm,av1,MAX_UPLOAD_MB=1024,DELETE_ON_FAIL=false,MAX_RETRIES=3,SIGNED_URL_TTL_SEC=900,POLL_INTERVAL_MS=2000,NEXT_TELEMETRY_DISABLED=1,LOCAL_STORAGE_ROOT=/data'
+      - '--set-secrets'
+      - 'DATABASE_URL=DATABASE_URL:latest,SHADOW_DATABASE_URL=SHADOW_DATABASE_URL:latest'
+
+images:
+  - 'gcr.io/$PROJECT_ID/videoconvert:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/videoconvert:latest'
+
+substitutions:
+  _REGION: 'europe-west1'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
