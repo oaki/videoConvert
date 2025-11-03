@@ -12,6 +12,27 @@
 - Automatically set to `8080`
 - Removed from `env-vars.yaml`
 
+### 3. ✅ Secret Manager Permissions (NEW!)
+- Service account needs access to secrets
+- Run `./add-secret-permissions.sh` before first deploy
+- Grants `Secret Manager Secret Accessor` role
+
+---
+
+## 🔐 IMPORTANT: First Time Setup
+
+**Before deploying for the first time, grant secret permissions:**
+
+```bash
+./add-secret-permissions.sh
+```
+
+This grants the Cloud Run service account access to:
+- `DATABASE_URL` secret
+- `SHADOW_DATABASE_URL` secret
+
+**You only need to do this ONCE.**
+
 ---
 
 ## 📝 Final env-vars.yaml:
@@ -112,4 +133,3 @@ Don't add these to env-vars.yaml (automatically set):
 ---
 
 **EVERYTHING IS FIXED AND READY! Run `./redeploy.sh` now!** 🎉
-
