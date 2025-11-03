@@ -35,12 +35,26 @@ export type AppConfig = {
 };
 
 export function loadConfig(): AppConfig {
+  console.log('[CONFIG] Loading configuration...');
+  console.log('[CONFIG] DATABASE_URL:', process.env.DATABASE_URL ? '✓ SET' : '✗ MISSING');
+  console.log('[CONFIG] LOCAL_STORAGE_ROOT:', process.env.LOCAL_STORAGE_ROOT || '✗ MISSING');
+  console.log('[CONFIG] OUTPUT_FORMATS:', process.env.OUTPUT_FORMATS || '(default)');
+  console.log('[CONFIG] MAX_UPLOAD_MB:', process.env.MAX_UPLOAD_MB || '(default: 1024)');
+  console.log('[CONFIG] NODE_ENV:', process.env.NODE_ENV || 'development');
+
   const databaseUrl = process.env.DATABASE_URL ?? '';
   const localRoot = process.env.LOCAL_STORAGE_ROOT ?? '';
-  if (!databaseUrl) throw new Error('Missing env DATABASE_URL');
-  if (!localRoot) throw new Error('Missing env LOCAL_STORAGE_ROOT');
 
-  return {
+  if (!databaseUrl) {
+    console.log('[CONFIG] ERROR: Missing env DATABASE_URL');
+    throw new Error('Missing env DATABASE_URL');
+  }
+  if (!localRoot) {
+    console.log('[CONFIG] ERROR: Missing env LOCAL_STORAGE_ROOT');
+    throw new Error('Missing env LOCAL_STORAGE_ROOT');
+  }
+
+  const config = {
     databaseUrl,
     localRoot,
     outputFormats: parseFormats(process.env.OUTPUT_FORMATS),
@@ -51,6 +65,16 @@ export function loadConfig(): AppConfig {
     nodeEnv: (process.env.NODE_ENV as AppConfig['nodeEnv']) ?? 'development',
     pollIntervalMs: parseNumber(process.env.POLL_INTERVAL_MS, 2000),
   };
+
+  console.log('[CONFIG] Configuration loaded successfully:', {
+    localRoot: config.localRoot,
+    outputFormats: config.outputFormats,
+    maxUploadMb: config.maxUploadMb,
+    maxRetries: config.maxRetries,
+    nodeEnv: config.nodeEnv,
+  });
+
+  return config;
 }
 
 export type { OutputFmt };

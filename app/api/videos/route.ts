@@ -32,13 +32,19 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  console.log('[UPLOAD] POST request received');
   const cfg = loadConfig();
+  console.log('[UPLOAD] Config loaded - maxUploadMb:', cfg.maxUploadMb);
 
   const contentType = request.headers.get('content-type') || '';
+  console.log('[UPLOAD] Content-Type:', contentType);
+
   if (!contentType.toLowerCase().startsWith('multipart/form-data')) {
+    console.log('[UPLOAD] ERROR: Invalid content type');
     return NextResponse.json({ error: 'Expected multipart/form-data' }, { status: 400 });
   }
 
+  console.log('[UPLOAD] Initializing storage...');
   const storage = localStorage();
 
   const headers: Record<string, string> = {};
@@ -73,7 +79,10 @@ export async function POST(request: Request) {
   let handled = false;
 
   bb.on('file', async (_name: string, fileStream: ReadableStream, info: BusboyFileInfo) => {
+    console.log('[UPLOAD] File event triggered');
+
     if (handled) {
+      console.log('[UPLOAD] File already handled, skipping');
       fileStream.resume();
       return;
     }
@@ -82,12 +91,14 @@ export async function POST(request: Request) {
     const originalName = info.filename || 'upload';
     const mimeType = info.mimeType || 'application/octet-stream';
     const title = path.parse(originalName).name || 'Video';
+    console.log('[UPLOAD] File info - name:', originalName, 'mime:', mimeType, 'title:', title);
 
     let videoId = '';
     let byteSize = 0;
     let failed = false;
 
     try {
+      console.log('[UPLOAD] Creating video record in database...');
       const created = await prisma.video.create({
         data: {
           title,
@@ -100,10 +111,13 @@ export async function POST(request: Request) {
         select: { id: true },
       });
       videoId = created.id;
+      console.log('[UPLOAD] Video record created with ID:', videoId);
 
       const destKey = `videos/${videoId}/original/${encodeURIComponent(originalName)}`;
+      console.log('[UPLOAD] Destination path:', destKey);
 
       fileStream.on('limit', async () => {
+        console.log('[UPLOAD] ERROR: File size limit exceeded');
         failed = true;
         try {
           await storage.delete(destKey);
@@ -111,14 +125,26 @@ export async function POST(request: Request) {
         resolveDone!(NextResponse.json({ error: 'File too large' }, { status: 413 }));
       });
 
+      let lastLoggedMB = 0;
       fileStream.on('data', (chunk: Buffer) => {
         byteSize += chunk.length;
+        const currentMB = Math.floor(byteSize / (1024 * 1024));
+        if (currentMB > lastLoggedMB && currentMB % 10 === 0) {
+          console.log('[UPLOAD] Progress:', currentMB, 'MB');
+          lastLoggedMB = currentMB;
+        }
       });
 
+      console.log('[UPLOAD] Starting file upload to storage...');
       await storage.putStream(destKey, fileStream);
+      console.log('[UPLOAD] File upload complete. Total size:', byteSize, 'bytes');
 
-      if (failed) return; // already responded
+      if (failed) {
+        console.log('[UPLOAD] Upload failed (size limit)');
+        return; // already responded
+      }
 
+      console.log('[UPLOAD] Updating video record and creating asset...');
       await prisma.$transaction([
         prisma.video.update({
           where: { id: videoId },
@@ -134,11 +160,16 @@ export async function POST(request: Request) {
           },
         }),
       ]);
+      console.log('[UPLOAD] Database transaction complete');
 
+      console.log('[UPLOAD] SUCCESS: Video queued for processing');
       resolveDone!(NextResponse.json({ id: videoId, status: 'QUEUED' }));
     } catch (e: unknown) {
+      console.log('[UPLOAD] ERROR during upload:', e);
+      console.error('[UPLOAD] Error stack:', (e as Error).stack);
       try {
         if (videoId) {
+          console.log('[UPLOAD] Marking video as failed in database');
           await prisma.video.update({
             where: { id: videoId },
             data: { status: 'FAILED', errorMessage: (e as Error).message },
@@ -150,28 +181,43 @@ export async function POST(request: Request) {
   });
 
   bb.on('partsLimit', () => {
+    console.log('[UPLOAD] ERROR: Too many parts');
     resolveDone!(NextResponse.json({ error: 'Too many parts' }, { status: 400 }));
   });
 
   bb.on('filesLimit', () => {
+    console.log('[UPLOAD] ERROR: Too many files');
     resolveDone!(NextResponse.json({ error: 'Too many files' }, { status: 400 }));
   });
 
-  bb.on('field', () => {
-    // ignore extra fields for now
+  bb.on('field', (name: string, value: string) => {
+    console.log('[UPLOAD] Form field received:', name, '=', value);
   });
 
   bb.on('close', () => {
+    console.log('[UPLOAD] Busboy close event');
     if (!handled) {
+      console.log('[UPLOAD] ERROR: No file was uploaded');
       resolveDone!(NextResponse.json({ error: 'No file provided' }, { status: 400 }));
     }
   });
 
+  bb.on('error', (err: Error) => {
+    console.log('[UPLOAD] Busboy error:', err);
+    console.error('[UPLOAD] Busboy error stack:', err.stack);
+  });
+
+  console.log('[UPLOAD] Piping request stream to busboy...');
   nodeStream.pipe(bb);
 
   try {
-    return await done;
+    console.log('[UPLOAD] Waiting for upload to complete...');
+    const response = await done;
+    console.log('[UPLOAD] Request complete, returning response');
+    return response;
   } catch (e: unknown) {
+    console.log('[UPLOAD] FATAL ERROR:', e);
+    console.error('[UPLOAD] Fatal error stack:', (e as Error).stack);
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
   }
 }

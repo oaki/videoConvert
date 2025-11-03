@@ -1,0 +1,180 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: videoconvert
+  labels:
+    cloud.googleapis.com/location: europe-west1
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: '0'
+        autoscaling.knative.dev/maxScale: '10'
+        run.googleapis.com/cpu-throttling: 'false'
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 3600
+      containers:
+      - image: gcr.io/videoconvert-app/videoconvert:latest
+        ports:
+        - name: http1
+          containerPort: 8080
+        env:
+        - name: NODE_ENV
+          value: production
+        - name: PORT
+          value: '8080'
+        - name: OUTPUT_FORMATS
+          value: mp4,webm,av1
+        - name: MAX_UPLOAD_MB
+          value: '1024'
+        - name: DELETE_ON_FAIL
+          value: 'false'
+        - name: MAX_RETRIES
+          value: '3'
+        - name: SIGNED_URL_TTL_SEC
+          value: '900'
+        - name: POLL_INTERVAL_MS
+          value: '2000'
+        - name: NEXT_TELEMETRY_DISABLED
+          value: '1'
+        - name: LOCAL_STORAGE_ROOT
+          value: /data
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: DATABASE_URL
+              key: latest
+        - name: SHADOW_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: SHADOW_DATABASE_URL
+              key: latest
+        resources:
+          limits:
+            cpu: '2'
+            memory: 2Gi
+  traffic:
+  - percent: 100
+    latestRevision: true
+# 🔧 MANUÁLNY DEPLOY CEZ CLOUD CONSOLE
+
+Docker image už je vytvorený a pushnutý do Container Registry!
+`gcr.io/videoconvert-app/videoconvert:latest`
+
+Teraz ho nasaď manuálne cez Cloud Console:
+
+## Krok 1: Otvor Cloud Run
+
+```bash
+open https://console.cloud.google.com/run?project=videoconvert-app
+```
+
+## Krok 2: Vytvor službu
+
+1. Klikni **"CREATE SERVICE"** (modrý button hore)
+2. V sekcii "Container image URL" klikni **"SELECT"**
+3. Vyber:
+   - **Container Registry**
+   - **videoconvert-app** (projekt)
+   - **videoconvert** (image)
+   - **latest** (tag)
+4. Klikni **"SELECT"**
+
+## Krok 3: Nastav konfiguráciu
+
+### Service name:
+```
+videoconvert
+```
+
+### Region:
+```
+europe-west1 (Belgium)
+```
+
+### Authentication:
+- ✅ **Allow unauthenticated invocations**
+
+### CPU allocation:
+- ✅ **CPU is always allocated**
+
+### Autoscaling:
+- Minimum: `0`
+- Maximum: `10`
+
+### Resources:
+- Memory: `2 GiB`
+- CPU: `2`
+- Request timeout: `3600` seconds
+
+## Krok 4: Environment variables
+
+Klikni **"CONTAINER, VARIABLES & SECRETS, CONNECTIONS, SECURITY"**
+
+### Tab "VARIABLES":
+
+Pridaj tieto environment variables (klikni "+ ADD VARIABLE"):
+
+```
+NODE_ENV=production
+PORT=8080
+OUTPUT_FORMATS=mp4,webm,av1
+MAX_UPLOAD_MB=1024
+DELETE_ON_FAIL=false
+MAX_RETRIES=3
+SIGNED_URL_TTL_SEC=900
+POLL_INTERVAL_MS=2000
+NEXT_TELEMETRY_DISABLED=1
+LOCAL_STORAGE_ROOT=/data
+```
+
+### Tab "SECRETS":
+
+Pridaj tieto secrets (klikni "+ REFERENCE A SECRET"):
+
+1. **DATABASE_URL**
+   - Reference method: **Mounted as environment variable**
+   - Secret: `DATABASE_URL`
+   - Version: `latest`
+   - Environment variable name: `DATABASE_URL`
+
+2. **SHADOW_DATABASE_URL**
+   - Reference method: **Mounted as environment variable**
+   - Secret: `SHADOW_DATABASE_URL`
+   - Version: `latest`
+   - Environment variable name: `SHADOW_DATABASE_URL`
+
+## Krok 5: Deploy!
+
+1. Klikni **"CREATE"** (modrý button dole)
+2. Počkaj 1-2 minúty
+3. Po dokončení uvidíš URL služby napr:
+   ```
+   https://videoconvert-xyz123-ew.a.run.app
+   ```
+
+## Krok 6: Otestuj
+
+Klikni na URL alebo:
+
+```bash
+URL=$(gcloud run services describe videoconvert --region europe-west1 --format 'value(status.url)')
+echo "Service URL: $URL"
+open "$URL"
+```
+
+---
+
+## Alternatíva: YAML deployment
+
+Ak preferuješ YAML, vytvoril som `service.yaml` - použi:
+
+```bash
+gcloud run services replace service.yaml
+```
+
+---
+
+**Poznámka:** Manuálny deploy cez Console je často jednoduchší a spoľahlivejší než CLI pri prvom nasadení!
+
