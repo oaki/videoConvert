@@ -29,6 +29,11 @@ npx prisma migrate dev
 npm run dev
 ```
 
+The application will:
+- Accept video uploads on `http://localhost:3000/upload`
+- Process videos automatically in the background
+- Store transcoded assets and thumbnails in the database
+
 ### Docker Compose (Local Testing)
 
 **Note:** Docker Compose now uses external database from `.env` file.
@@ -43,6 +48,16 @@ docker compose down
 # Remove volumes
 docker compose down -v
 ```
+
+## Architecture
+
+**Single Service Design:**
+- Web API and video processing run in the same Next.js application
+- No separate worker service needed
+- Processing triggered automatically after upload
+- Runs asynchronously without blocking uploads
+
+See [VIDEO_PROCESSING.md](./VIDEO_PROCESSING.md) for details.
 
 ## ☁️ Google Cloud Run Deployment
 

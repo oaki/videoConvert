@@ -162,6 +162,16 @@ export async function POST(request: Request) {
       ]);
       console.log('[UPLOAD] Database transaction complete');
 
+      // Trigger video processing asynchronously
+      console.log('[UPLOAD] Triggering video processing...');
+      fetch(`${request.url.split('/api/')[0]}/api/process-video`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoId }),
+      }).catch((error) => {
+        console.error('[UPLOAD] Failed to trigger video processing:', error);
+      });
+
       console.log('[UPLOAD] SUCCESS: Video queued for processing');
       resolveDone!(NextResponse.json({ id: videoId, status: 'QUEUED' }));
     } catch (e: unknown) {

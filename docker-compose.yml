@@ -31,20 +31,10 @@ services:
       timeout: 3s
       retries: 10
 
-  worker:
-    build:
-      context: .
-      dockerfile: Dockerfile.worker
-    env_file:
-      - .env.docker
-    volumes:
-      - app_data:/data
-    depends_on:
-      web:
-        condition: service_started
-
 volumes:
   app_data:
+
+
 
 
 

@@ -1,13 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
-
 import { spawn } from 'node:child_process';
-
 import type { Asset } from '@prisma/client';
-
-import { loadConfig } from '../../lib/config';
-import { prisma } from '../../lib/prisma';
-import { localStorage } from '../../lib/storage';
+import { loadConfig } from './config';
+import { prisma } from './prisma';
+import { localStorage } from './storage';
 
 async function run(cmd: string, args: string[]): Promise<void> {
   await new Promise<void>((resolve, reject) => {
@@ -19,9 +16,7 @@ async function run(cmd: string, args: string[]): Promise<void> {
 const cfg = loadConfig();
 const storage = localStorage();
 
-let isProcessing = false;
-
-async function processVideo(videoId: string): Promise<void> {
+export async function processVideo(videoId: string): Promise<void> {
   console.log('Processing video', videoId);
 
   const video = await prisma.video.findUnique({
@@ -86,11 +81,11 @@ async function processVideo(videoId: string): Promise<void> {
         '96k',
         previewAbs,
       ]);
-      
+
       // Read preview clip and save to DB
       const previewBuffer = await fs.promises.readFile(previewAbs);
       const previewStat = await fs.promises.stat(previewAbs);
-      
+
       await prisma.asset.create({
         data: {
           videoId,
@@ -136,11 +131,11 @@ async function processVideo(videoId: string): Promise<void> {
         '1',
         posterAbs,
       ]);
-      
+
       // Read poster and save to DB
       const posterBuffer = await fs.promises.readFile(posterAbs);
       const posterStat = await fs.promises.stat(posterAbs);
-      
+
       await prisma.asset.create({
         data: {
           videoId,
@@ -187,43 +182,4 @@ async function processVideo(videoId: string): Promise<void> {
     }
   }
 }
-
-async function pollQueue(): Promise<void> {
-  if (isProcessing) return;
-
-  try {
-    const queuedVideo = await prisma.video.findFirst({
-      where: { status: 'QUEUED' },
-      orderBy: { createdAt: 'asc' },
-    });
-
-    if (queuedVideo) {
-      // Atomically claim the video by updating status from QUEUED to PROCESSING
-      // This prevents race conditions when multiple workers are running
-      const updated = await prisma.video.updateMany({
-        where: {
-          id: queuedVideo.id,
-          status: 'QUEUED',
-        },
-        data: { status: 'PROCESSING' },
-      });
-
-      // Only process if we successfully claimed it (updateMany count > 0)
-      if (updated.count > 0) {
-        isProcessing = true;
-        await processVideo(queuedVideo.id);
-        isProcessing = false;
-      }
-    }
-  } catch (error) {
-    isProcessing = false;
-    console.error('Error polling queue:', error);
-  }
-}
-
-// Start polling
-console.log(`Worker started, polling every ${cfg.pollIntervalMs}ms`);
-pollQueue(); // Process immediately on start
-setInterval(pollQueue, cfg.pollIntervalMs);
-
 
