@@ -6,7 +6,6 @@ Created **`env-vars.yaml`** file with all environment variables:
 
 ```yaml
 NODE_ENV: production
-PORT: "8080"
 OUTPUT_FORMATS: mp4,webm,av1      # ← Commas work perfectly in YAML!
 MAX_UPLOAD_MB: "1024"
 DELETE_ON_FAIL: "false"
@@ -16,6 +15,8 @@ POLL_INTERVAL_MS: "2000"
 NEXT_TELEMETRY_DISABLED: "1"
 LOCAL_STORAGE_ROOT: /data
 ```
+
+**Note:** `PORT` is automatically set by Cloud Run to `8080` and cannot be overridden.
 
 ## 🔧 Updated Scripts
 

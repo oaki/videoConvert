@@ -1,5 +1,4 @@
 NODE_ENV: production
-PORT: "8080"
 OUTPUT_FORMATS: mp4,webm,av1
 MAX_UPLOAD_MB: "1024"
 DELETE_ON_FAIL: "false"
