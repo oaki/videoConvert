@@ -3,30 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
-}
-
-enum VideoStatus {
-  UPLOADED
-  QUEUED
-  PROCESSING
-  READY
-  FAILED
-}
-
-enum AssetType {
-  ORIGINAL
-  TRANSCODED
-  PREVIEW_CLIP
-  POSTER
-  FRAME
-}
-
-enum Format {
-  MP4
-  WEBM
-  AV1
+  provider          = "mysql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 model Video {
@@ -50,34 +29,55 @@ model Video {
 }
 
 model Asset {
-  id           String     @id @default(cuid())
+  id           String          @id @default(cuid())
   videoId      String
-  video        Video      @relation(fields: [videoId], references: [id], onDelete: Cascade)
   type         AssetType
   format       Format?
   path         String
-  data         Bytes?     @db.LongBlob
   byteSize     Int?
   width        Int?
   height       Int?
   durationSec  Int?
   timeOffsetMs Int?
-  isDefault    Boolean    @default(false)
-  createdAt    DateTime   @default(now())
+  isDefault    Boolean         @default(false)
+  createdAt    DateTime        @default(now())
+  data         Bytes?
+  video        Video           @relation(fields: [videoId], references: [id], onDelete: Cascade)
   tokens       DownloadToken[]
+
+  @@index([videoId])
 }
 
 model DownloadToken {
   id        String   @id @default(cuid())
   assetId   String
-  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
   tokenHash String
   expiresAt DateTime
   createdAt DateTime @default(now())
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
   @@index([assetId])
   @@index([expiresAt])
 }
 
+enum VideoStatus {
+  UPLOADED
+  QUEUED
+  PROCESSING
+  READY
+  FAILED
+}
 
+enum AssetType {
+  ORIGINAL
+  TRANSCODED
+  PREVIEW_CLIP
+  POSTER
+  FRAME
+}
 
+enum Format {
+  MP4
+  WEBM
+  AV1
+}
