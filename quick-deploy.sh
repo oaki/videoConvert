@@ -18,18 +18,8 @@ gcloud run deploy "$SERVICE_NAME" \
     --timeout 3600 \
     --min-instances 0 \
     --max-instances 10 \
-    --update-env-vars NODE_ENV=production \
-    --update-env-vars PORT=8080 \
-    --update-env-vars OUTPUT_FORMATS=mp4,webm,av1 \
-    --update-env-vars MAX_UPLOAD_MB=1024 \
-    --update-env-vars DELETE_ON_FAIL=false \
-    --update-env-vars MAX_RETRIES=3 \
-    --update-env-vars SIGNED_URL_TTL_SEC=900 \
-    --update-env-vars POLL_INTERVAL_MS=2000 \
-    --update-env-vars NEXT_TELEMETRY_DISABLED=1 \
-    --update-env-vars LOCAL_STORAGE_ROOT=/data \
-    --update-secrets DATABASE_URL=DATABASE_URL:latest \
-    --update-secrets SHADOW_DATABASE_URL=SHADOW_DATABASE_URL:latest
+    --env-vars-file env-vars.yaml \
+    --update-secrets DATABASE_URL=DATABASE_URL:latest,SHADOW_DATABASE_URL=SHADOW_DATABASE_URL:latest
 
 echo ""
 echo "✅ Deployment complete!"
